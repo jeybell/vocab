@@ -1,0 +1,48 @@
+# Expo / React Native 표준 .gitignore
+
+# 의존성
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# 네이티브 빌드 산출물 (prebuild로 생성됨)
+ios/
+android/
+
+# Metro
+.metro-health-check*
+
+# 디버그 로그
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.log*
+
+# macOS
+.DS_Store
+*.pem
+
+# 환경 변수 / 시크릿
+.env
+.env.local
+.env.*.local
+
+# 타입스크립트
+*.tsbuildinfo
+
+# 에디터
+.vscode/
+.idea/
+
+# EAS 빌드 로컬 산출물
+*.ipa
+*.apk
+*.aab
+
+# 테스트
+coverage/
