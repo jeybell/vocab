@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "정의쌤 단어장",
+    "slug": "jeongui-vocab",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f2efe3"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.yourname.jeonguivocab"
+    },
+    "android": {
+      "package": "com.yourname.jeonguivocab"
+    }
+  }
+}
