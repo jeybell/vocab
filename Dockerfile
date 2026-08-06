@@ -13,4 +13,5 @@ ENV EXPO_NO_TELEMETRY=1
 
 EXPOSE 8081
 
-CMD ["npx", "expo", "start", "--port", "8081", "--no-dev", "--minify"]
+CMD ["npx", "expo", "start", "--tunnel", "--port", "8081"]
+
