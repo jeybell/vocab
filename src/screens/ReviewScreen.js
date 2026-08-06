@@ -43,6 +43,7 @@ export default function ReviewScreen({ wrongPool, loaded, onStartFlashcard, onSt
                 <View style={styles.rowText}>
                   <Text style={styles.rowWord}>{item.word}</Text>
                   <Text style={styles.rowMeaning}>{item.meaning}</Text>
+                  {item.example ? <Text style={styles.rowExample}>{item.example}</Text> : null}
                 </View>
                 <TouchableOpacity onPress={() => onRemove(item.id)} hitSlop={8}>
                   <Ionicons name="checkmark" size={18} color={COLORS.green} />
@@ -97,6 +98,7 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowWord: { fontFamily: FONTS.serifBold, fontSize: 15, color: COLORS.ink },
   rowMeaning: { fontSize: 12, color: COLORS.inkSoft },
+  rowExample: { fontSize: 11, color: COLORS.inkSoft, marginTop: 2, fontStyle: 'italic' },
   clearBtn: { flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', paddingVertical: 12 },
   clearBtnText: { color: COLORS.red, fontSize: 12.5 },
 });

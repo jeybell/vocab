@@ -8,7 +8,7 @@ import FlashcardScreen from './src/screens/FlashcardScreen';
 import QuizScreen from './src/screens/QuizScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
 
-const DAYS = [1, 2, 3, 4, 5];
+const DAYS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 function dayLabel(days) {
   if (days.length === DAYS.length) return '전체 (Day 1~5)';
@@ -44,6 +44,10 @@ export default function App() {
   const dayPool = useMemo(() => WORDS.filter((w) => selectedDays.includes(w.day)), [selectedDays]);
   const wrongPool = useMemo(() => WORDS.filter((w) => wrongIds.includes(w.id)), [wrongIds]);
   const activePool = source === 'wrong' ? wrongPool : dayPool;
+
+  const toggleAllDays = () => {
+    setSelectedDays((prev) => (prev.length === DAYS.length ? [] : DAYS));
+  };
 
   const toggleDay = (d) => {
     setSelectedDays((prev) => {
@@ -112,7 +116,7 @@ export default function App() {
         <HomeScreen
           selectedDays={selectedDays}
           toggleDay={toggleDay}
-          selectAll={() => setSelectedDays(DAYS)}
+          selectAll={toggleAllDays}
           poolCount={dayPool.length}
           wrongCount={wrongIds.length}
           loaded={loaded}

@@ -6,7 +6,7 @@ import DayTab from '../components/DayTab';
 import { COLORS, DAY_ACCENT, FONTS, hexToRgba } from '../theme';
 import { WORDS } from '../data/words';
 
-const DAYS = [1, 2, 3, 4, 5];
+const DAYS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 function sessionLabel(session) {
   const modeLabel = session.mode === 'quiz' ? '퀴즈' : '플래시카드';
@@ -36,7 +36,6 @@ export default function HomeScreen({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.eyebrow}>원정의T · 정의쌤 어휘 노트</Text>
         <Text style={styles.title}>단어장</Text>
         <Text style={styles.sub}>무작위 학습 · 총 {WORDS.length}개 단어</Text>
 
@@ -105,7 +104,6 @@ export default function HomeScreen({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.paper },
   scroll: { padding: 20, paddingBottom: 40 },
-  eyebrow: { fontFamily: FONTS.mono, fontSize: 11, color: COLORS.inkSoft, letterSpacing: 1, textTransform: 'uppercase' },
   title: { fontFamily: FONTS.serifBold, fontWeight: '700', fontSize: 34, color: COLORS.ink, marginTop: 4 },
   sub: { color: COLORS.inkSoft, fontSize: 13, marginBottom: 18 },
   resumeCard: {

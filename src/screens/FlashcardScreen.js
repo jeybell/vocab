@@ -60,6 +60,13 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
     }
   };
 
+  const goBack = () => {
+    if (index === 0) return;
+    setIndex((i) => i - 1);
+    setFlipped(false);
+    anim.setValue(0);
+  };
+
   const restart = () => {
     setIndex(0);
     setFlipped(false);
@@ -111,6 +118,7 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
             </View>
             <Text style={styles.word}>{current.word}</Text>
             <Text style={styles.ipa}>{current.ipa}</Text>
+            {current.example ? <Text style={styles.frontExample}>{current.example}</Text> : null}
             <Text style={styles.hint}>탭하여 뜻 보기</Text>
           </Animated.View>
           <Animated.View
@@ -122,11 +130,23 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
           >
             <Text style={styles.meaning}>{current.meaning}</Text>
             <Text style={styles.kr}>{current.kr}</Text>
+            {current.exampleKr ? (
+              <View style={styles.exampleBox}>
+                <Text style={styles.exampleKr}>{current.exampleKr}</Text>
+              </View>
+            ) : null}
           </Animated.View>
         </TouchableOpacity>
       </View>
 
       <View style={styles.actions}>
+        <TouchableOpacity
+          style={[styles.btn, styles.btnBack, index === 0 && styles.btnDisabled]}
+          onPress={goBack}
+          disabled={index === 0}
+        >
+          <Text style={[styles.btnText, { color: COLORS.inkSoft }]}>← 이전</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[styles.btn, styles.btnRed]} onPress={() => advance(true)}>
           <Text style={[styles.btnText, { color: COLORS.red }]}>다시 볼래요</Text>
         </TouchableOpacity>
@@ -144,7 +164,7 @@ const styles = StyleSheet.create({
   progressTrack: { height: 4, backgroundColor: COLORS.cardBorder, borderRadius: 999, marginHorizontal: 20, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: COLORS.ink },
   cardWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  cardTouchable: { width: '100%', maxWidth: 340, height: 260 },
+  cardTouchable: { width: '100%', maxWidth: 340, height: 320 },
   face: {
     position: 'absolute',
     width: '100%',
@@ -163,11 +183,29 @@ const styles = StyleSheet.create({
   dayChipText: { color: '#fff', fontFamily: FONTS.mono, fontSize: 11, fontWeight: '700' },
   word: { fontFamily: FONTS.serifBold, fontSize: 30, color: COLORS.ink, marginTop: 8, textAlign: 'center' },
   ipa: { fontFamily: FONTS.mono, color: COLORS.inkSoft, fontSize: 14, marginTop: 6 },
+  frontExample: {
+    fontSize: 13,
+    color: COLORS.ink,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 14,
+    paddingHorizontal: 8,
+  },
   hint: { position: 'absolute', bottom: 14, fontSize: 11, color: COLORS.inkSoft },
   meaning: { fontFamily: FONTS.serifBold, fontSize: 24, color: COLORS.ink, textAlign: 'center' },
   kr: { color: COLORS.inkSoft, fontSize: 13, marginTop: 8 },
-  actions: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 4 },
+  exampleBox: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.cardBorder,
+    width: '100%',
+  },
+  exampleKr: { fontSize: 12, color: COLORS.inkSoft, textAlign: 'center', lineHeight: 17 },
+  actions: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 4 },
   btn: { flex: 1, borderRadius: 10, paddingVertical: 13, alignItems: 'center', backgroundColor: COLORS.card, borderWidth: 1 },
+  btnBack: { flex: 0.7, borderColor: COLORS.cardBorder },
+  btnDisabled: { opacity: 0.35 },
   btnRed: { borderColor: 'rgba(192,57,47,0.4)' },
   btnGreen: { borderColor: 'rgba(47,111,78,0.4)' },
   btnText: { fontWeight: '700', fontSize: 14 },
