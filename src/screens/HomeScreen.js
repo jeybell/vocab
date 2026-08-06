@@ -67,7 +67,7 @@ export default function HomeScreen({
 
         <Text style={styles.poolStatus}>
           선택한 범위:{' '}
-          {allSelected ? '전체 (Day 1~5)' : `Day ${[...selectedDays].sort((a, b) => a - b).join(', ')}`} ·{' '}
+          {allSelected ? `전체 (Day ${DAYS[0]}~${DAYS[DAYS.length - 1]})` : `Day ${[...selectedDays].sort((a, b) => a - b).join(', ')}`} ·{' '}
           {poolCount}개 단어
         </Text>
 
