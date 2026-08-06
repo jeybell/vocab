@@ -11,7 +11,7 @@ import ReviewScreen from './src/screens/ReviewScreen';
 const DAYS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 function dayLabel(days) {
-  if (days.length === DAYS.length) return '전체 (Day 1~5)';
+  if (days.length === DAYS.length) return `전체 (Day ${DAYS[0]}~${DAYS[DAYS.length - 1]})`;
   return `Day ${[...days].sort((a, b) => a - b).join(', ')}`;
 }
 
