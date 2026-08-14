@@ -1,0 +1,11 @@
+services:
+  vocab-app:
+    build:
+      context: ./vocab-native
+      dockerfile: Dockerfile
+    container_name: vocab-app
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    # Expo Go에 알려줄 서버 주소는 컨테이너가 아니라
+    # OCI 인스턴스의 공인 IP를 그대로 사용하면 됩니다.

@@ -31,6 +31,7 @@ export default function HomeScreen({
   onReview,
   savedSession,
   onResume,
+  onHistory,
 }) {
   const allSelected = selectedDays.length === DAYS.length;
   return (
@@ -95,6 +96,12 @@ export default function HomeScreen({
           <Text style={styles.modeDesc}>
             {loaded ? (wrongCount > 0 ? '틀린 단어 다시 보기' : '아직 틀린 단어 없음') : '불러오는 중...'}
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.modeCard} onPress={onHistory}>
+          <Ionicons name="time-outline" size={22} color={COLORS.ink} />
+          <Text style={styles.modeTitle}>학습 기록</Text>
+          <Text style={styles.modeDesc}>완료한 세션별 점수 보기</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

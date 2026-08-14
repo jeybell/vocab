@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, DAY_ACCENT, FONTS } from '../theme';
 import { shuffle } from '../utils/shuffle';
 import { WORDS_BY_ID } from '../data/words';
-import { saveSession, clearSession } from '../storage';
+import { saveSession, clearSession, addHistoryEntry } from '../storage';
 import TopBar from '../components/TopBar';
 import SessionSummary from '../components/SessionSummary';
 
@@ -46,13 +46,23 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
   };
 
   const advance = (markedWrong) => {
+    const finalWrongCount = markedWrong ? wrongCount + 1 : wrongCount;
     if (markedWrong) {
-      setWrongCount((c) => c + 1);
+      setWrongCount(finalWrongCount);
       onWrong(current.id);
     }
     if (index + 1 >= deck.length) {
       setDone(true);
       clearSession();
+      addHistoryEntry({
+        id: `${Date.now()}`,
+        date: new Date().toISOString(),
+        mode: 'flashcard',
+        title,
+        total: deck.length,
+        correct: deck.length - finalWrongCount,
+        wrongCount: finalWrongCount,
+      });
     } else {
       setIndex((i) => i + 1);
       setFlipped(false);
@@ -130,6 +140,12 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
           >
             <Text style={styles.meaning}>{current.meaning}</Text>
             <Text style={styles.kr}>{current.kr}</Text>
+            {current.roots ? (
+              <View style={styles.rootsBox}>
+                <Text style={styles.rootsLabel}>어원</Text>
+                <Text style={styles.rootsText}>{current.roots}</Text>
+              </View>
+            ) : null}
             {current.exampleKr ? (
               <View style={styles.exampleBox}>
                 <Text style={styles.exampleKr}>{current.exampleKr}</Text>
@@ -164,7 +180,7 @@ const styles = StyleSheet.create({
   progressTrack: { height: 4, backgroundColor: COLORS.cardBorder, borderRadius: 999, marginHorizontal: 20, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: COLORS.ink },
   cardWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  cardTouchable: { width: '100%', maxWidth: 340, height: 320 },
+  cardTouchable: { width: '100%', maxWidth: 340, height: 380 },
   face: {
     position: 'absolute',
     width: '100%',
@@ -195,13 +211,30 @@ const styles = StyleSheet.create({
   meaning: { fontFamily: FONTS.serifBold, fontSize: 24, color: COLORS.ink, textAlign: 'center' },
   kr: { color: COLORS.inkSoft, fontSize: 13, marginTop: 8 },
   exampleBox: {
-    marginTop: 16,
-    paddingTop: 14,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: COLORS.cardBorder,
     width: '100%',
   },
   exampleKr: { fontSize: 12, color: COLORS.inkSoft, textAlign: 'center', lineHeight: 17 },
+  rootsBox: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.cardBorder,
+    width: '100%',
+    alignItems: 'center',
+  },
+  rootsLabel: {
+    fontFamily: FONTS.mono,
+    fontSize: 10,
+    fontWeight: '700',
+    color: DAY_ACCENT[6],
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  rootsText: { fontSize: 11.5, color: COLORS.ink, textAlign: 'center', lineHeight: 16 },
   actions: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 4 },
   btn: { flex: 1, borderRadius: 10, paddingVertical: 13, alignItems: 'center', backgroundColor: COLORS.card, borderWidth: 1 },
   btnBack: { flex: 0.7, borderColor: COLORS.cardBorder },

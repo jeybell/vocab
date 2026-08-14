@@ -2,11 +2,12 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { WORDS } from './src/data/words';
-import { loadWrongWords, saveWrongWords, loadSession, clearSession } from './src/storage';
+import { loadWrongWords, saveWrongWords, loadSession, clearSession, loadHistory, clearHistory } from './src/storage';
 import HomeScreen from './src/screens/HomeScreen';
 import FlashcardScreen from './src/screens/FlashcardScreen';
 import QuizScreen from './src/screens/QuizScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -25,6 +26,8 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [savedSession, setSavedSession] = useState(null);
   const [pendingResume, setPendingResume] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -33,12 +36,20 @@ export default function App() {
       const session = await loadSession();
       setSavedSession(session);
       setLoaded(true);
+      const h = await loadHistory();
+      setHistory(h);
+      setHistoryLoaded(true);
     })();
   }, []);
 
   const refreshSession = async () => {
     const session = await loadSession();
     setSavedSession(session);
+  };
+
+  const refreshHistory = async () => {
+    const h = await loadHistory();
+    setHistory(h);
   };
 
   const dayPool = useMemo(() => WORDS.filter((w) => selectedDays.includes(w.day)), [selectedDays]);
@@ -107,6 +118,12 @@ export default function App() {
   const exitStudy = () => {
     setScreen(source === 'wrong' ? 'review' : 'home');
     refreshSession();
+    refreshHistory();
+  };
+
+  const clearAllHistory = async () => {
+    await clearHistory();
+    setHistory([]);
   };
 
   return (
@@ -124,6 +141,15 @@ export default function App() {
           onReview={() => setScreen('review')}
           savedSession={loaded ? savedSession : null}
           onResume={startResume}
+          onHistory={() => setScreen('history')}
+        />
+      )}
+      {screen === 'history' && (
+        <HistoryScreen
+          history={history}
+          loaded={historyLoaded}
+          onClearAll={clearAllHistory}
+          onExit={() => setScreen('home')}
         />
       )}
       {screen === 'review' && (

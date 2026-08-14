@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WRONG_KEY = 'vocab.wrongWords';
 const SESSION_KEY = 'vocab.activeSession';
+const HISTORY_KEY = 'vocab.history';
 
 export async function loadWrongWords() {
   try {
@@ -49,5 +50,37 @@ export async function clearSession() {
     await AsyncStorage.removeItem(SESSION_KEY);
   } catch (e) {
     console.warn('세션 삭제 실패', e);
+  }
+}
+
+// 학습 완료 기록 (몇 일치 · 모드 · 점수) - 최대 200개까지 보관
+export async function loadHistory() {
+  try {
+    const raw = await AsyncStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function addHistoryEntry(entry) {
+  try {
+    const current = await loadHistory();
+    const next = [entry, ...current].slice(0, 200);
+    await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    return next;
+  } catch (e) {
+    console.warn('학습 기록 저장 실패', e);
+    return null;
+  }
+}
+
+export async function clearHistory() {
+  try {
+    await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify([]));
+  } catch (e) {
+    console.warn('학습 기록 삭제 실패', e);
   }
 }

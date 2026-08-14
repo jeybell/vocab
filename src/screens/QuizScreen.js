@@ -5,7 +5,7 @@ import { COLORS, DAY_ACCENT, FONTS } from '../theme';
 import { shuffle } from '../utils/shuffle';
 import { buildQuizOptions } from '../utils/quiz';
 import { WORDS_BY_ID } from '../data/words';
-import { saveSession, clearSession } from '../storage';
+import { saveSession, clearSession, addHistoryEntry } from '../storage';
 import TopBar from '../components/TopBar';
 import SessionSummary from '../components/SessionSummary';
 import { Stamp } from '../components/Stamp';
@@ -53,6 +53,15 @@ export default function QuizScreen({ pool, title, onExit, onWrong, resumeData, s
     if (index + 1 >= deck.length) {
       setDone(true);
       clearSession();
+      addHistoryEntry({
+        id: `${Date.now()}`,
+        date: new Date().toISOString(),
+        mode: 'quiz',
+        title,
+        total: deck.length,
+        correct: deck.length - wrongCount,
+        wrongCount,
+      });
       return;
     }
     const n = index + 1;
