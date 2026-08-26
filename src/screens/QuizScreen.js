@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Speech from 'expo-speech';
 import { COLORS, DAY_ACCENT, FONTS } from '../theme';
 import { shuffle } from '../utils/shuffle';
 import { buildQuizOptions } from '../utils/quiz';
@@ -8,6 +9,7 @@ import { WORDS_BY_ID } from '../data/words';
 import { saveSession, clearSession, addHistoryEntry } from '../storage';
 import TopBar from '../components/TopBar';
 import SessionSummary from '../components/SessionSummary';
+import SpeakButton from '../components/SpeakButton';
 import { Stamp } from '../components/Stamp';
 
 export default function QuizScreen({ pool, title, onExit, onWrong, resumeData, sessionMeta }) {
@@ -39,6 +41,13 @@ export default function QuizScreen({ pool, title, onExit, onWrong, resumeData, s
       updatedAt: Date.now(),
     });
   }, [index, wrongCount]);
+
+  // 다음 문제로 넘어가거나 화면을 벗어나면 재생 중인 발음을 끊습니다.
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, [index]);
 
   const pick = (opt) => {
     if (answered) return;
@@ -108,7 +117,10 @@ export default function QuizScreen({ pool, title, onExit, onWrong, resumeData, s
           <Text style={styles.dayChipText}>Day {current.day}</Text>
         </View>
         <Text style={styles.word}>{current.word}</Text>
-        <Text style={styles.ipa}>{current.ipa}</Text>
+        <View style={styles.pronRow}>
+          <Text style={styles.ipa}>{current.ipa}</Text>
+          <SpeakButton text={current.word} />
+        </View>
         <Stamp show={!!(answered && picked && picked.correct)} type="correct" />
         <Stamp show={!!(answered && picked && !picked.correct)} type="wrong" />
       </View>
@@ -160,7 +172,8 @@ const styles = StyleSheet.create({
   dayChip: { position: 'absolute', top: 14, left: 14, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
   dayChipText: { color: '#fff', fontFamily: FONTS.mono, fontSize: 11, fontWeight: '700' },
   word: { fontFamily: FONTS.serifBold, fontSize: 28, color: COLORS.ink, marginTop: 6 },
-  ipa: { fontFamily: FONTS.mono, color: COLORS.inkSoft, fontSize: 13, marginTop: 6 },
+  pronRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  ipa: { fontFamily: FONTS.mono, color: COLORS.inkSoft, fontSize: 13 },
   options: { gap: 9 },
   option: { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.cardBorder, borderRadius: 10, padding: 14 },
   optionText: { fontSize: 14.5, color: COLORS.ink },

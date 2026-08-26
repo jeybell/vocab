@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Speech from 'expo-speech';
 import { COLORS, DAY_ACCENT, FONTS } from '../theme';
 import { shuffle } from '../utils/shuffle';
 import { WORDS_BY_ID } from '../data/words';
 import { saveSession, clearSession, addHistoryEntry } from '../storage';
 import TopBar from '../components/TopBar';
 import SessionSummary from '../components/SessionSummary';
+import SpeakButton from '../components/SpeakButton';
 
 export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeData, sessionMeta }) {
   const [deck] = useState(() => {
@@ -34,6 +36,13 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
       updatedAt: Date.now(),
     });
   }, [index, wrongCount]);
+
+  // 다음 단어로 넘어가거나 화면을 벗어나면 재생 중인 발음을 끊습니다.
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, [index]);
 
   const flip = () => {
     Animated.spring(anim, {
@@ -118,6 +127,9 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
       <View style={styles.cardWrap}>
         <TouchableOpacity activeOpacity={0.9} onPress={flip} style={styles.cardTouchable}>
           <Animated.View
+            // 뒤집힌 뒤에는 앞면이 보이지 않으므로, 그 위에 겹쳐 있는 발음 버튼이
+            // 눌리지 않도록 터치를 통과시킵니다.
+            pointerEvents={flipped ? 'none' : 'auto'}
             style={[
               styles.face,
               { transform: [{ perspective: 1200 }, { rotateY: frontRotate }], opacity: frontOpacity },
@@ -127,7 +139,10 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
               <Text style={styles.dayChipText}>Day {current.day}</Text>
             </View>
             <Text style={styles.word}>{current.word}</Text>
-            <Text style={styles.ipa}>{current.ipa}</Text>
+            <View style={styles.pronRow}>
+              <Text style={styles.ipa}>{current.ipa}</Text>
+              <SpeakButton text={current.word} />
+            </View>
             {current.example ? <Text style={styles.frontExample}>{current.example}</Text> : null}
             <Text style={styles.hint}>탭하여 뜻 보기</Text>
           </Animated.View>
@@ -198,7 +213,8 @@ const styles = StyleSheet.create({
   dayChip: { position: 'absolute', top: 14, left: 14, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
   dayChipText: { color: '#fff', fontFamily: FONTS.mono, fontSize: 11, fontWeight: '700' },
   word: { fontFamily: FONTS.serifBold, fontSize: 30, color: COLORS.ink, marginTop: 8, textAlign: 'center' },
-  ipa: { fontFamily: FONTS.mono, color: COLORS.inkSoft, fontSize: 14, marginTop: 6 },
+  pronRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  ipa: { fontFamily: FONTS.mono, color: COLORS.inkSoft, fontSize: 14 },
   frontExample: {
     fontSize: 13,
     color: COLORS.ink,
