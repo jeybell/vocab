@@ -53,20 +53,62 @@ src/theme.js            # 색상 / 폰트 토큰
 
 ## 웹 배포 (브라우저 접속)
 
-정적 파일로 빌드해 웹서버로 서빙하면 Expo Go 설치 없이 브라우저 주소만으로 접속할 수 있습니다.
+정적 파일로 빌드해 nginx로 서빙하면 Expo Go 설치 없이 브라우저 주소만으로 접속할 수 있습니다. cloudflared 터널을 붙이면 **재기동해도 주소가 바뀌지 않습니다** (앱 배포의 Expo 터널은 재시작할 때마다 서브도메인이 새로 발급됩니다).
+
+### 로컬에서 확인
 
 ```bash
-npx expo export --platform web    # dist/ 에 정적 파일 생성
-```
-
-`dist/` 를 그대로 nginx 등으로 서빙하면 됩니다. 빌드 산출물이므로 git에는 커밋하지 않습니다(`.gitignore`에 포함).
-
-```bash
-# 로컬에서 결과물 확인
 npx expo export --platform web && npx serve dist
 ```
 
-고정 도메인이 필요하면 서버에서 이미 운영 중인 cloudflared 터널을 활용할 수 있습니다. 앱(Expo 터널) 방식과 달리 주소가 재기동 때마다 바뀌지 않습니다.
+`dist/` 는 빌드 산출물이라 git에 커밋하지 않습니다 (`.gitignore` 포함).
+
+### 서버 배포
+
+빌드와 서빙을 한 이미지로 묶어두었습니다 (`Dockerfile.web`: node로 번들 빌드 → nginx로 서빙).
+
+```bash
+git -C ~/vocab pull origin main
+docker build -f ~/vocab/Dockerfile.web -t vocab-web ~/vocab
+docker rm -f vocab-web 2>/dev/null
+
+# cloudflared와 같은 네트워크에 두어야 터널이 컨테이너 이름으로 접근할 수 있습니다.
+docker network create vocab-net 2>/dev/null
+docker run -d --name vocab-web --restart unless-stopped --network vocab-net vocab-web
+
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:80   # 컨테이너 내부 확인용
+```
+
+### cloudflared 연결
+
+터널을 `vocab-web` 컨테이너와 같은 네트워크에 붙이고, 공개 호스트명의 서비스를 **`http://vocab-web:80`** 으로 지정합니다.
+
+```bash
+docker network connect vocab-net <cloudflared-컨테이너명>
+```
+
+라우팅 설정 위치는 터널 운영 방식에 따라 다릅니다.
+
+- **토큰 방식** (`cloudflared tunnel run --token ...`): Cloudflare Zero Trust 대시보드의 해당 터널 → Public Hostname 에서 `서비스 = http://vocab-web:80` 으로 추가
+- **설정 파일 방식** (`config.yml`): `ingress` 에 항목 추가 후 터널 재시작
+
+```yaml
+ingress:
+  - hostname: vocab.example.com
+    service: http://vocab-web:80
+  - service: http_status:404      # 마지막 catch-all 규칙은 항상 유지
+```
+
+### 재배포
+
+코드가 갱신되면 이미지를 다시 빌드해 컨테이너만 교체하면 됩니다. 도메인은 그대로 유지됩니다.
+
+```bash
+git -C ~/vocab pull origin main
+docker build -f ~/vocab/Dockerfile.web -t vocab-web ~/vocab
+docker rm -f vocab-web
+docker run -d --name vocab-web --restart unless-stopped --network vocab-net vocab-web
+```
 
 ### 웹에서의 동작 참고
 
