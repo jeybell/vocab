@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import { COLORS, DAY_ACCENT, FONTS } from '../theme';
@@ -9,6 +9,8 @@ import { saveSession, clearSession, addHistoryEntry } from '../storage';
 import TopBar from '../components/TopBar';
 import SessionSummary from '../components/SessionSummary';
 import SpeakButton from '../components/SpeakButton';
+
+const NATIVE_DRIVER = Platform.OS !== 'web';
 
 export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeData, sessionMeta }) {
   const [deck] = useState(() => {
@@ -47,7 +49,8 @@ export default function FlashcardScreen({ pool, title, onExit, onWrong, resumeDa
   const flip = () => {
     Animated.spring(anim, {
       toValue: flipped ? 0 : 1,
-      useNativeDriver: true,
+      // 웹에는 네이티브 애니메이션 모듈이 없어 켜두면 경고가 뜨고 JS로 폴백됩니다.
+      useNativeDriver: NATIVE_DRIVER,
       friction: 8,
       tension: 10,
     }).start();

@@ -1,6 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, View, StyleSheet } from 'react-native';
+import { Animated, View, StyleSheet, Platform } from 'react-native';
 import { COLORS } from '../theme';
+
+// 웹에는 네이티브 애니메이션 모듈이 없어 켜두면 경고가 뜨고 JS로 폴백됩니다.
+const NATIVE_DRIVER = Platform.OS !== 'web';
 
 export function Stamp({ show, type }) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -8,7 +11,7 @@ export function Stamp({ show, type }) {
   useEffect(() => {
     Animated.spring(anim, {
       toValue: show ? 1 : 0,
-      useNativeDriver: true,
+      useNativeDriver: NATIVE_DRIVER,
       friction: 5,
       tension: 120,
     }).start();
