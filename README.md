@@ -12,14 +12,17 @@ Day 1~10, 999단어 플래시카드/퀴즈/오답노트 앱.
 - **어원 정보**: 999단어 중 595단어에 어원 풀이 수록
 - **발음 듣기**: 플래시카드·퀴즈에서 스피커 버튼으로 단어 발음 재생 (`expo-speech` 기반 TTS)
 
+앱(Expo Go)과 웹 브라우저 양쪽에서 같은 코드로 동작합니다.
+
 ## 실행 (로컬 개발)
 
 ```bash
 npm install
-npx expo start
+npx expo start          # 앱 (Expo Go)
+npx expo start --web    # 웹 브라우저
 ```
 
-터미널에 뜨는 QR코드를 iPhone 카메라 앱으로 스캔하면 Expo Go 앱이 열리며 바로 실행됩니다.
+앱은 터미널에 뜨는 QR코드를 iPhone 카메라 앱으로 스캔하면 Expo Go 앱이 열리며 바로 실행됩니다.
 (App Store에서 "Expo Go" 먼저 설치 필요)
 
 ## 폴더 구조
@@ -28,8 +31,8 @@ npx expo start
 App.js                  # 화면 전환 · 세션 상태 관리 루트
 src/data/words.js       # Day 1~10 단어 데이터 (999개) + WORDS_BY_ID 조회 맵
 src/screens/            # Home / Flashcard / Quiz / Review / History 화면
-src/components/         # TopBar, DayTab, Stamp(채점 스탬프), SessionSummary
-src/utils/              # shuffle, 퀴즈 보기 생성(동의어 중복 방지)
+src/components/         # TopBar, DayTab, Stamp(채점 스탬프), SessionSummary, SpeakButton
+src/utils/              # shuffle, 퀴즈 보기 생성(동의어 중복 방지), 발음 텍스트 정리
 src/storage.js          # AsyncStorage 기반 오답노트 · 진행중 세션 · 학습 기록 저장
 src/theme.js            # 색상 / 폰트 토큰
 ```
@@ -44,9 +47,35 @@ src/theme.js            # 색상 / 폰트 토큰
 | `vocab.activeSession` | 진행 중인 세션 (이어서 학습하기용) |
 | `vocab.history` | 완료한 학습 기록 (최대 200개) |
 
-앱을 지우면 초기화되고, 클라우드 동기화는 안 됩니다. 필요하면 나중에 Supabase 등으로 교체 가능.
+앱에서는 기기 로컬에, 웹에서는 브라우저의 localStorage에 저장됩니다. 계정 개념이 없으므로 **접속자마다 자기 기기·브라우저에만 진도가 쌓입니다.** 기기나 브라우저를 바꾸면 진도가 이어지지 않고, 앱을 지우거나 브라우저 데이터를 삭제하면 초기화됩니다.
 
-## 서버 배포 (OCI 상시 운영)
+기기 간 동기화가 필요해지면 백엔드(Supabase 등)와 로그인을 붙여야 합니다.
+
+## 웹 배포 (브라우저 접속)
+
+정적 파일로 빌드해 웹서버로 서빙하면 Expo Go 설치 없이 브라우저 주소만으로 접속할 수 있습니다.
+
+```bash
+npx expo export --platform web    # dist/ 에 정적 파일 생성
+```
+
+`dist/` 를 그대로 nginx 등으로 서빙하면 됩니다. 빌드 산출물이므로 git에는 커밋하지 않습니다(`.gitignore`에 포함).
+
+```bash
+# 로컬에서 결과물 확인
+npx expo export --platform web && npx serve dist
+```
+
+고정 도메인이 필요하면 서버에서 이미 운영 중인 cloudflared 터널을 활용할 수 있습니다. 앱(Expo 터널) 방식과 달리 주소가 재기동 때마다 바뀌지 않습니다.
+
+### 웹에서의 동작 참고
+
+- 저장은 브라우저 localStorage를 사용합니다 (위 "저장 방식" 참고).
+- 발음 듣기는 브라우저의 Web Speech API로 동작하며, 음성 지원 범위는 브라우저마다 다릅니다.
+- 애니메이션은 웹에 네이티브 드라이버가 없어 JS 기반으로 동작합니다 (`Platform.OS`로 분기 처리되어 있음).
+- favicon은 설정하지 않아 브라우저가 `/favicon.ico`를 404로 받습니다. 동작에는 영향이 없으며, 필요하면 `app.json`의 `web.favicon`에 이미지를 지정하면 됩니다.
+
+## 앱 배포 (OCI 상시 운영)
 
 OCI 인스턴스에서 Docker 컨테이너로 `expo start --tunnel`을 상시 띄워두고, Expo Go에서 터널 URL로 접속하는 방식입니다. 서버의 저장소 경로는 `~/vocab`, 컨테이너 이름은 `vocab-app` 입니다.
 
@@ -87,7 +116,8 @@ docker exec vocab-app curl -s http://127.0.0.1:4040/api/tunnels
 
 ## 다른 사람과 공유하기
 
-- **현재 방식**: 위 서버 배포로 상시 떠 있는 터널 URL을 전달 → 상대방이 Expo Go 앱만 있으면 바로 실행
+- **웹 주소 전달**: 위 웹 배포로 올린 주소를 전달 → 앱 설치 없이 브라우저에서 바로 실행 (가장 간단)
+- **Expo Go 터널 URL 전달**: 상시 떠 있는 터널 URL을 전달 → 상대방이 Expo Go 앱만 있으면 실행 (재기동 시 주소 변경됨)
 - **로컬에서 임시 공유**: `npx expo start` 후 뜨는 QR/링크를 그대로 전달 (빌드/배포 불필요)
 - **TestFlight(iOS)**: Apple Developer 계정 필요. `npx eas build --platform ios` → EAS Submit → TestFlight 링크로 최대 100명 배포
 - **APK(Android)**: `npx eas build --platform android` 로 만든 APK 파일을 그냥 전달하면 스토어 없이도 설치 가능

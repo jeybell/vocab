@@ -15,6 +15,9 @@
     },
     "android": {
       "package": "com.yourname.jeonguivocab"
+    },
+    "web": {
+      "bundler": "metro"
     }
   }
 }
