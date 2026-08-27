@@ -1,0 +1,42 @@
+name: Deploy
+
+# main 에 반영되면 서버에 접속해 재배포합니다.
+# pull_request 로는 실행하지 않습니다. 공개 저장소라 포크에서 온 PR이
+# 배포를 실행할 수 있어서는 안 되기 때문입니다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 배포가 겹치지 않도록 한 번에 하나만 실행합니다.
+# 진행 중인 배포는 중간에 끊지 않습니다.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # 저장소 내용은 필요하지 않습니다. 서버가 스스로 git pull 합니다.
+      - name: SSH 키 준비
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 서버에서 배포 실행
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'cd ~/vocab && git pull origin main && ./deploy.sh'
+
+      - name: 키 삭제
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

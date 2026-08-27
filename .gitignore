@@ -46,3 +46,6 @@ pnpm-debug.log*
 
 # 테스트
 coverage/
+
+# 서버별 배포 설정 (서버 주소 등) — 저장소에 올리지 않습니다
+deploy.env

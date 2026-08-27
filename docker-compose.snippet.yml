@@ -24,4 +24,4 @@ services:
     environment:
       # Expo Go에 알려줄 주소. 서버의 공인 IP로 바꿔서 사용하세요.
       # 지정하지 않으면 컨테이너 내부 IP를 알려주어 접속되지 않습니다.
-      REACT_NATIVE_PACKAGER_HOSTNAME: "168.110.106.156"
+      REACT_NATIVE_PACKAGER_HOSTNAME: "<서버-IP>"
