@@ -9,10 +9,24 @@
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/vocab}"
-# Expo Go에 알려줄 주소입니다. 컨테이너 내부 IP가 아니라 서버 공인 IP여야 합니다.
-PUBLIC_HOST="${PUBLIC_HOST:-168.110.106.156}"
 WEB_PORT="${WEB_PORT:-8082}"
 APP_PORT="${APP_PORT:-8081}"
+
+# 서버 주소는 저장소에 두지 않습니다(공개 저장소). 서버의 deploy.env 에 보관하며,
+# 이 파일은 .gitignore 에 있습니다. 환경변수로 직접 넘긴 값이 우선합니다.
+if [ -z "${PUBLIC_HOST:-}" ] && [ -f "$REPO_DIR/deploy.env" ]; then
+  # shellcheck source=/dev/null
+  . "$REPO_DIR/deploy.env"
+fi
+
+# Expo Go에 알려줄 주소입니다. 컨테이너 내부 IP가 아니라 서버 공인 IP여야 합니다.
+if [ -z "${PUBLIC_HOST:-}" ]; then
+  echo "PUBLIC_HOST 가 설정되지 않았습니다." >&2
+  echo "  ${REPO_DIR}/deploy.env 에 PUBLIC_HOST=<서버-IP> 를 넣거나," >&2
+  echo "  PUBLIC_HOST=<서버-IP> ./deploy.sh 로 실행하세요." >&2
+  echo "  (deploy.env.example 을 복사해서 쓰면 됩니다)" >&2
+  exit 1
+fi
 
 cd "$REPO_DIR"
 

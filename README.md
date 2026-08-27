@@ -39,6 +39,7 @@ src/theme.js            # 색상 / 폰트 토큰
 Dockerfile              # 앱(Expo Go)용 이미지 — Expo 개발 서버 실행
 Dockerfile.web          # 웹용 이미지 — 번들 빌드 후 nginx로 서빙
 deploy.sh               # 웹·앱 두 컨테이너를 한 번에 재배포
+deploy.env.example      # 서버 주소 설정 템플릿 (실제 값은 서버의 deploy.env 에)
 .github/workflows/      # main 반영 시 서버에서 deploy.sh 를 실행 (자동 배포)
 ```
 
@@ -60,7 +61,7 @@ deploy.sh               # 웹·앱 두 컨테이너를 한 번에 재배포
 
 정적 파일로 빌드해 nginx로 서빙합니다. Expo Go 설치 없이 브라우저 주소만으로 접속할 수 있고, **재배포해도 주소가 바뀌지 않습니다** (앱 배포의 Expo 터널은 재시작할 때마다 서브도메인이 새로 발급됩니다).
 
-**현재 접속 주소: `http://168.110.106.156:8082`**
+**현재 접속 주소: `http://<서버-IP>:8082`**
 
 ### 로컬에서 확인
 
@@ -112,10 +113,20 @@ cd ~/vocab && ./deploy.sh
 
 두 이미지를 **모두 빌드한 뒤에** 컨테이너를 교체하므로, 빌드가 실패하면 기존 컨테이너는 살아 있는 상태로 남습니다.
 
-서버 IP나 포트가 바뀌면 환경변수로 넘길 수 있습니다.
+### 서버 주소 설정 (최초 1회)
+
+공개 저장소이므로 서버 주소는 저장소에 두지 않고 **서버의 `deploy.env`** 에 보관합니다. 이 파일은 `.gitignore` 에 있습니다.
 
 ```bash
-PUBLIC_HOST=1.2.3.4 WEB_PORT=9000 ./deploy.sh
+cd ~/vocab
+cp deploy.env.example deploy.env
+# deploy.env 를 열어 PUBLIC_HOST=<서버-IP> 를 채웁니다
+```
+
+설정하지 않으면 `deploy.sh` 가 안내 메시지를 출력하고 중단합니다. 한 번만 넘기고 싶다면 환경변수로도 됩니다.
+
+```bash
+PUBLIC_HOST=<서버-IP> WEB_PORT=9000 ./deploy.sh
 ```
 
 웹만 따로 갱신하려면 아래처럼 직접 실행해도 됩니다.
@@ -142,7 +153,7 @@ docker run -d --name vocab-web --restart unless-stopped -p 8082:80 vocab-web
 
 OCI 인스턴스에서 Docker 컨테이너로 Expo 개발 서버를 상시 띄워두고, Expo Go에서 접속하는 방식입니다. 서버의 저장소 경로는 `~/vocab`, 컨테이너 이름은 `vocab-app` 입니다.
 
-**접속 주소: `exp://168.110.106.156:8081`** (웹과 마찬가지로 고정)
+**접속 주소: `exp://<서버-IP>:8081`** (웹과 마찬가지로 고정)
 
 ### 배포 (코드 갱신 후 재기동)
 
@@ -154,7 +165,7 @@ docker build -t vocab-app ~/vocab
 docker rm -f vocab-app
 docker run -d --name vocab-app --restart unless-stopped \
   -p 8081:8081 \
-  -e REACT_NATIVE_PACKAGER_HOSTNAME=168.110.106.156 \
+  -e REACT_NATIVE_PACKAGER_HOSTNAME=<서버-IP> \
   vocab-app
 
 docker logs vocab-app        # "Waiting on http://localhost:8081" 이 뜨면 정상
@@ -168,7 +179,7 @@ docker logs vocab-app        # "Waiting on http://localhost:8081" 이 뜨면 정
 
 ### Expo Go 접속
 
-- **URL 직접 입력**: Expo Go에서 "Enter URL manually" → `exp://168.110.106.156:8081`
+- **URL 직접 입력**: Expo Go에서 "Enter URL manually" → `exp://<서버-IP>:8081`
 - **iOS**: 수동 입력란이 없으면 메모장이나 Safari 주소창에 위 주소를 넣고 탭하면 딥링크로 열립니다
 - **QR 공유**: 위 주소를 QR 생성기에 넣어 이미지로 만들어 전달하면 됩니다
 
@@ -190,6 +201,8 @@ docker logs vocab-app        # "Waiting on http://localhost:8081" 이 뜨면 정
 포크에서 온 PR이 배포를 실행할 수 없도록 **`push: main` 과 수동 실행(`workflow_dispatch`) 에서만** 동작합니다. 공개 저장소이므로 이 구분이 중요합니다.
 
 ### 최초 설정
+
+> 서버에 `deploy.env` 가 준비되어 있어야 합니다 (위 "서버 주소 설정" 참고). 없으면 자동 배포가 `deploy.sh` 단계에서 중단됩니다.
 
 **1. 서버에서 배포 전용 키를 만들고 등록합니다.**
 
@@ -229,8 +242,8 @@ rm ~/deploy_key ~/deploy_key.pub
 
 ## 다른 사람과 공유하기
 
-- **웹 주소 전달**: `http://168.110.106.156:8082` 를 전달 → 앱 설치 없이 브라우저에서 바로 실행 (가장 간단, 주소 고정)
-- **Expo Go 주소 전달**: `exp://168.110.106.156:8081` 을 전달 → 상대방이 Expo Go 앱만 있으면 실행 (주소 고정)
+- **웹 주소 전달**: `http://<서버-IP>:8082` 를 전달 → 앱 설치 없이 브라우저에서 바로 실행 (가장 간단, 주소 고정)
+- **Expo Go 주소 전달**: `exp://<서버-IP>:8081` 을 전달 → 상대방이 Expo Go 앱만 있으면 실행 (주소 고정)
 - **로컬에서 임시 공유**: `npx expo start` 후 뜨는 QR/링크를 그대로 전달 (빌드/배포 불필요)
 - **TestFlight(iOS)**: Apple Developer 계정 필요. `npx eas build --platform ios` → EAS Submit → TestFlight 링크로 최대 100명 배포
 - **APK(Android)**: `npx eas build --platform android` 로 만든 APK 파일을 그냥 전달하면 스토어 없이도 설치 가능
