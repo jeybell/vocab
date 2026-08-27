@@ -53,7 +53,9 @@ src/theme.js            # 색상 / 폰트 토큰
 
 ## 웹 배포 (브라우저 접속)
 
-정적 파일로 빌드해 nginx로 서빙하면 Expo Go 설치 없이 브라우저 주소만으로 접속할 수 있습니다. cloudflared 터널을 붙이면 **재기동해도 주소가 바뀌지 않습니다** (앱 배포의 Expo 터널은 재시작할 때마다 서브도메인이 새로 발급됩니다).
+정적 파일로 빌드해 nginx로 서빙합니다. Expo Go 설치 없이 브라우저 주소만으로 접속할 수 있고, **재배포해도 주소가 바뀌지 않습니다** (앱 배포의 Expo 터널은 재시작할 때마다 서브도메인이 새로 발급됩니다).
+
+**현재 접속 주소: `http://168.110.106.156:8082`**
 
 ### 로컬에서 확인
 
@@ -65,50 +67,48 @@ npx expo export --platform web && npx serve dist
 
 ### 서버 배포
 
-빌드와 서빙을 한 이미지로 묶어두었습니다 (`Dockerfile.web`: node로 번들 빌드 → nginx로 서빙).
-
-```bash
-git -C ~/vocab pull origin main
-docker build -f ~/vocab/Dockerfile.web -t vocab-web ~/vocab
-docker rm -f vocab-web 2>/dev/null
-
-# cloudflared와 같은 네트워크에 두어야 터널이 컨테이너 이름으로 접근할 수 있습니다.
-docker network create vocab-net 2>/dev/null
-docker run -d --name vocab-web --restart unless-stopped --network vocab-net vocab-web
-
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:80   # 컨테이너 내부 확인용
-```
-
-### cloudflared 연결
-
-터널을 `vocab-web` 컨테이너와 같은 네트워크에 붙이고, 공개 호스트명의 서비스를 **`http://vocab-web:80`** 으로 지정합니다.
-
-```bash
-docker network connect vocab-net <cloudflared-컨테이너명>
-```
-
-라우팅 설정 위치는 터널 운영 방식에 따라 다릅니다.
-
-- **토큰 방식** (`cloudflared tunnel run --token ...`): Cloudflare Zero Trust 대시보드의 해당 터널 → Public Hostname 에서 `서비스 = http://vocab-web:80` 으로 추가
-- **설정 파일 방식** (`config.yml`): `ingress` 에 항목 추가 후 터널 재시작
-
-```yaml
-ingress:
-  - hostname: vocab.example.com
-    service: http://vocab-web:80
-  - service: http_status:404      # 마지막 catch-all 규칙은 항상 유지
-```
-
-### 재배포
-
-코드가 갱신되면 이미지를 다시 빌드해 컨테이너만 교체하면 됩니다. 도메인은 그대로 유지됩니다.
+빌드와 서빙을 한 이미지로 묶어두었습니다 (`Dockerfile.web`: node로 번들 빌드 → nginx로 서빙). 서버 호스트에는 Node.js가 없지만, 빌드가 컨테이너 안에서 이뤄지므로 설치할 필요가 없습니다.
 
 ```bash
 git -C ~/vocab pull origin main
 docker build -f ~/vocab/Dockerfile.web -t vocab-web ~/vocab
 docker rm -f vocab-web
-docker run -d --name vocab-web --restart unless-stopped --network vocab-net vocab-web
+docker run -d --name vocab-web --restart unless-stopped -p 8082:80 vocab-web
+
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8082   # 200 이어야 정상
 ```
+
+### 포트 개방 (최초 1회)
+
+OCI 인스턴스는 클라우드 방화벽이 기본으로 막고 있어, **OCI 콘솔에서 8082 포트를 열어야** 외부에서 접속됩니다.
+
+```
+콘솔 → 컴퓨트 → 인스턴스 → 기본 VNIC의 서브넷 링크
+  → 보안 목록 → 수신 규칙 추가
+```
+
+| 항목 | 값 |
+| --- | --- |
+| 소스 CIDR | `0.0.0.0/0` |
+| IP 프로토콜 | TCP |
+| 대상 포트 범위 | `8082` |
+
+> 서버 안의 `iptables` 는 건드릴 필요가 없습니다. 도커가 게시한 포트는 `INPUT` 체인을 거치지 않고 `FORWARD`/`DOCKER` 체인으로 처리되기 때문입니다. 접속이 안 될 때 서버 방화벽부터 의심하기 쉬운데, 원인은 대부분 위의 OCI 보안 목록입니다.
+
+### 재배포
+
+코드가 갱신되면 이미지를 다시 빌드해 컨테이너만 교체합니다. 포트 개방은 이미 되어 있으므로 주소는 그대로입니다.
+
+```bash
+git -C ~/vocab pull origin main
+docker build -f ~/vocab/Dockerfile.web -t vocab-web ~/vocab
+docker rm -f vocab-web
+docker run -d --name vocab-web --restart unless-stopped -p 8082:80 vocab-web
+```
+
+### 나중에 도메인을 붙인다면
+
+도메인을 등록해 Cloudflare에 연결하면 `https://vocab.도메인` 형태의 주소를 쓸 수 있습니다. 이 경우 컨테이너를 포트 게시 대신 전용 네트워크에 두고, cloudflared 커넥터를 같은 네트워크에 붙인 뒤 공개 호스트명의 서비스를 `vocab-web:80` 으로 지정하면 됩니다.
 
 ### 웹에서의 동작 참고
 
@@ -158,7 +158,7 @@ docker exec vocab-app curl -s http://127.0.0.1:4040/api/tunnels
 
 ## 다른 사람과 공유하기
 
-- **웹 주소 전달**: 위 웹 배포로 올린 주소를 전달 → 앱 설치 없이 브라우저에서 바로 실행 (가장 간단)
+- **웹 주소 전달**: `http://168.110.106.156:8082` 를 전달 → 앱 설치 없이 브라우저에서 바로 실행 (가장 간단, 주소 고정)
 - **Expo Go 터널 URL 전달**: 상시 떠 있는 터널 URL을 전달 → 상대방이 Expo Go 앱만 있으면 실행 (재기동 시 주소 변경됨)
 - **로컬에서 임시 공유**: `npx expo start` 후 뜨는 QR/링크를 그대로 전달 (빌드/배포 불필요)
 - **TestFlight(iOS)**: Apple Developer 계정 필요. `npx eas build --platform ios` → EAS Submit → TestFlight 링크로 최대 100명 배포
