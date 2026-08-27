@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "정의쌤 단어장",
-    "slug": "jeongui-vocab",
+    "name": "단어장",
+    "slug": "vocab",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -11,10 +11,10 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.yourname.jeonguivocab"
+      "bundleIdentifier": "com.jeybell.vocab"
     },
     "android": {
-      "package": "com.yourname.jeonguivocab"
+      "package": "com.jeybell.vocab"
     },
     "web": {
       "bundler": "metro"
