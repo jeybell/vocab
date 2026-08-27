@@ -53,7 +53,9 @@ src/theme.js            # 색상 / 폰트 토큰
 
 ## 웹 배포 (브라우저 접속)
 
-정적 파일로 빌드해 nginx로 서빙하면 Expo Go 설치 없이 브라우저 주소만으로 접속할 수 있습니다. cloudflared 터널을 붙이면 **재기동해도 주소가 바뀌지 않습니다** (앱 배포의 Expo 터널은 재시작할 때마다 서브도메인이 새로 발급됩니다).
+정적 파일로 빌드해 nginx로 서빙합니다. Expo Go 설치 없이 브라우저 주소만으로 접속할 수 있고, **재배포해도 주소가 바뀌지 않습니다** (앱 배포의 Expo 터널은 재시작할 때마다 서브도메인이 새로 발급됩니다).
+
+**현재 접속 주소: `http://168.110.106.156:8082`**
 
 ### 로컬에서 확인
 
@@ -65,50 +67,48 @@ npx expo export --platform web && npx serve dist
 
 ### 서버 배포
 
-빌드와 서빙을 한 이미지로 묶어두었습니다 (`Dockerfile.web`: node로 번들 빌드 → nginx로 서빙).
-
-```bash
-git -C ~/vocab pull origin main
-docker build -f ~/vocab/Dockerfile.web -t vocab-web ~/vocab
-docker rm -f vocab-web 2>/dev/null
-
-# cloudflared와 같은 네트워크에 두어야 터널이 컨테이너 이름으로 접근할 수 있습니다.
-docker network create vocab-net 2>/dev/null
-docker run -d --name vocab-web --restart unless-stopped --network vocab-net vocab-web
-
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:80   # 컨테이너 내부 확인용
-```
-
-### cloudflared 연결
-
-터널을 `vocab-web` 컨테이너와 같은 네트워크에 붙이고, 공개 호스트명의 서비스를 **`http://vocab-web:80`** 으로 지정합니다.
-
-```bash
-docker network connect vocab-net <cloudflared-컨테이너명>
-```
-
-라우팅 설정 위치는 터널 운영 방식에 따라 다릅니다.
-
-- **토큰 방식** (`cloudflared tunnel run --token ...`): Cloudflare Zero Trust 대시보드의 해당 터널 → Public Hostname 에서 `서비스 = http://vocab-web:80` 으로 추가
-- **설정 파일 방식** (`config.yml`): `ingress` 에 항목 추가 후 터널 재시작
-
-```yaml
-ingress:
-  - hostname: vocab.example.com
-    service: http://vocab-web:80
-  - service: http_status:404      # 마지막 catch-all 규칙은 항상 유지
-```
-
-### 재배포
-
-코드가 갱신되면 이미지를 다시 빌드해 컨테이너만 교체하면 됩니다. 도메인은 그대로 유지됩니다.
+빌드와 서빙을 한 이미지로 묶어두었습니다 (`Dockerfile.web`: node로 번들 빌드 → nginx로 서빙). 서버 호스트에는 Node.js가 없지만, 빌드가 컨테이너 안에서 이뤄지므로 설치할 필요가 없습니다.
 
 ```bash
 git -C ~/vocab pull origin main
 docker build -f ~/vocab/Dockerfile.web -t vocab-web ~/vocab
 docker rm -f vocab-web
-docker run -d --name vocab-web --restart unless-stopped --network vocab-net vocab-web
+docker run -d --name vocab-web --restart unless-stopped -p 8082:80 vocab-web
+
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8082   # 200 이어야 정상
 ```
+
+### 포트 개방 (최초 1회)
+
+OCI 인스턴스는 클라우드 방화벽이 기본으로 막고 있어, **OCI 콘솔에서 8082 포트를 열어야** 외부에서 접속됩니다.
+
+```
+콘솔 → 컴퓨트 → 인스턴스 → 기본 VNIC의 서브넷 링크
+  → 보안 목록 → 수신 규칙 추가
+```
+
+| 항목 | 값 |
+| --- | --- |
+| 소스 CIDR | `0.0.0.0/0` |
+| IP 프로토콜 | TCP |
+| 대상 포트 범위 | `8082` |
+
+> 서버 안의 `iptables` 는 건드릴 필요가 없습니다. 도커가 게시한 포트는 `INPUT` 체인을 거치지 않고 `FORWARD`/`DOCKER` 체인으로 처리되기 때문입니다. 접속이 안 될 때 서버 방화벽부터 의심하기 쉬운데, 원인은 대부분 위의 OCI 보안 목록입니다.
+
+### 재배포
+
+코드가 갱신되면 이미지를 다시 빌드해 컨테이너만 교체합니다. 포트 개방은 이미 되어 있으므로 주소는 그대로입니다.
+
+```bash
+git -C ~/vocab pull origin main
+docker build -f ~/vocab/Dockerfile.web -t vocab-web ~/vocab
+docker rm -f vocab-web
+docker run -d --name vocab-web --restart unless-stopped -p 8082:80 vocab-web
+```
+
+### 나중에 도메인을 붙인다면
+
+도메인을 등록해 Cloudflare에 연결하면 `https://vocab.도메인` 형태의 주소를 쓸 수 있습니다. 이 경우 컨테이너를 포트 게시 대신 전용 네트워크에 두고, cloudflared 커넥터를 같은 네트워크에 붙인 뒤 공개 호스트명의 서비스를 `vocab-web:80` 으로 지정하면 됩니다.
 
 ### 웹에서의 동작 참고
 
@@ -119,47 +119,51 @@ docker run -d --name vocab-web --restart unless-stopped --network vocab-net voca
 
 ## 앱 배포 (OCI 상시 운영)
 
-OCI 인스턴스에서 Docker 컨테이너로 `expo start --tunnel`을 상시 띄워두고, Expo Go에서 터널 URL로 접속하는 방식입니다. 서버의 저장소 경로는 `~/vocab`, 컨테이너 이름은 `vocab-app` 입니다.
+OCI 인스턴스에서 Docker 컨테이너로 Expo 개발 서버를 상시 띄워두고, Expo Go에서 접속하는 방식입니다. 서버의 저장소 경로는 `~/vocab`, 컨테이너 이름은 `vocab-app` 입니다.
+
+**접속 주소: `exp://168.110.106.156:8081`** (웹과 마찬가지로 고정)
 
 ### 배포 (코드 갱신 후 재기동)
 
 ```bash
-ssh ubuntu@<서버-IP>
-
 git -C ~/vocab pull origin main
 docker build -t vocab-app ~/vocab
-docker stop vocab-app && docker rm vocab-app
-docker run -d --name vocab-app --restart unless-stopped vocab-app
-docker logs -f vocab-app     # Tunnel ready 확인 후 Ctrl+C (컨테이너는 계속 실행됨)
+docker rm -f vocab-app
+docker run -d --name vocab-app --restart unless-stopped \
+  -p 8081:8081 \
+  -e REACT_NATIVE_PACKAGER_HOSTNAME=168.110.106.156 \
+  vocab-app
+
+docker logs vocab-app        # "Waiting on http://localhost:8081" 이 뜨면 정상
 ```
 
-`Tunnel connected.` / `Tunnel ready.` 가 뜨면 정상 기동입니다.
+`REACT_NATIVE_PACKAGER_HOSTNAME` 은 Expo가 클라이언트에게 알려줄 주소입니다. 지정하지 않으면 컨테이너 내부 IP(`172.x.x.x`)를 알려주어 접속이 되지 않습니다.
 
-### 접속 URL 확인
+### 포트 개방 (최초 1회)
 
-컨테이너가 `CI=1` 환경에서 실행되므로 로그에 QR코드나 URL이 출력되지 않습니다. 대신 ngrok 관리 API로 조회합니다.
+웹(8082)과 마찬가지로 OCI 보안 목록에 **8081** 수신 규칙이 필요합니다. 절차는 위 "웹 배포 → 포트 개방" 항목과 같고 대상 포트만 다릅니다.
 
-```bash
-docker exec vocab-app curl -s http://127.0.0.1:4040/api/tunnels
-```
+### Expo Go 접속
 
-응답 JSON의 `public_url` (예: `https://xxxxxxx-anonymous-8081.exp.direct`) 이 접속 주소입니다.
+- **URL 직접 입력**: Expo Go에서 "Enter URL manually" → `exp://168.110.106.156:8081`
+- **iOS**: 수동 입력란이 없으면 메모장이나 Safari 주소창에 위 주소를 넣고 탭하면 딥링크로 열립니다
+- **QR 공유**: 위 주소를 QR 생성기에 넣어 이미지로 만들어 전달하면 됩니다
 
-- **Expo Go 접속**: 앱에서 "Enter URL manually" 선택 → `exp://xxxxxxx-anonymous-8081.exp.direct` 입력
-  (연결이 안 되면 `:443` 을 뒤에 붙여서 시도)
-- **QR로 공유**: `https://...` 주소를 QR 생성기에 넣어 이미지로 만들어 전달
+> 예전에는 `expo start --tunnel`(ngrok)을 사용했는데, 컨테이너를 재시작할 때마다 서브도메인이 새로 발급되어 이전에 공유한 QR과 링크가 모두 `ERR_NGROK_3200` 으로 죽는 문제가 있었습니다. 포트를 직접 여는 방식으로 바꿔 주소가 고정됩니다.
 
-> 터널 서브도메인은 컨테이너를 재시작할 때마다 새로 발급되므로, 재기동 후에는 URL을 다시 확인해서 공유해야 합니다.
+### 유지보수 참고
+
+`REACT_NATIVE_PACKAGER_HOSTNAME` 은 Expo CLI 소스에서 deprecated로 표시되어 있습니다(동작은 정상). SDK 업그레이드 후 접속이 안 되면 이 변수가 제거되었는지 먼저 확인하세요.
 
 ### 참고
 
-- 컨테이너는 호스트 포트를 퍼블리시하지 않습니다 (터널로만 외부 접근). `docker run` 에 `-p` 옵션이 없는 것이 정상입니다.
+- 서버에서 두 컨테이너가 각각 다른 포트로 동시에 운영됩니다: `vocab-web`(8082, 브라우저용), `vocab-app`(8081, Expo Go용).
 - `docker-compose.snippet.yml` 은 compose로 운영할 경우를 위한 참고용 예시이며, 현재 서버는 위의 `docker build` / `docker run` 방식으로 운영 중입니다.
 
 ## 다른 사람과 공유하기
 
-- **웹 주소 전달**: 위 웹 배포로 올린 주소를 전달 → 앱 설치 없이 브라우저에서 바로 실행 (가장 간단)
-- **Expo Go 터널 URL 전달**: 상시 떠 있는 터널 URL을 전달 → 상대방이 Expo Go 앱만 있으면 실행 (재기동 시 주소 변경됨)
+- **웹 주소 전달**: `http://168.110.106.156:8082` 를 전달 → 앱 설치 없이 브라우저에서 바로 실행 (가장 간단, 주소 고정)
+- **Expo Go 주소 전달**: `exp://168.110.106.156:8081` 을 전달 → 상대방이 Expo Go 앱만 있으면 실행 (주소 고정)
 - **로컬에서 임시 공유**: `npx expo start` 후 뜨는 QR/링크를 그대로 전달 (빌드/배포 불필요)
 - **TestFlight(iOS)**: Apple Developer 계정 필요. `npx eas build --platform ios` → EAS Submit → TestFlight 링크로 최대 100명 배포
 - **APK(Android)**: `npx eas build --platform android` 로 만든 APK 파일을 그냥 전달하면 스토어 없이도 설치 가능
