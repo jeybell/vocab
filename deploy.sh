@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# 웹(브라우저)과 앱(Expo Go) 두 컨테이너를 한 번에 다시 배포합니다.
+# 코드를 고친 뒤 서버에서 이 스크립트만 실행하면 됩니다.
+#
+#   ./deploy.sh
+#
+# 두 이미지를 모두 빌드한 뒤에 컨테이너를 교체하므로, 빌드가 실패하면
+# 기존 컨테이너는 그대로 살아 있습니다.
+set -euo pipefail
+
+REPO_DIR="${REPO_DIR:-$HOME/vocab}"
+# Expo Go에 알려줄 주소입니다. 컨테이너 내부 IP가 아니라 서버 공인 IP여야 합니다.
+PUBLIC_HOST="${PUBLIC_HOST:-168.110.106.156}"
+WEB_PORT="${WEB_PORT:-8082}"
+APP_PORT="${APP_PORT:-8081}"
+
+cd "$REPO_DIR"
+
+echo "==> 최신 코드 받기"
+git pull origin main
+
+echo "==> 웹 이미지 빌드 (Dockerfile.web)"
+docker build -f Dockerfile.web -t vocab-web .
+
+echo "==> 앱 이미지 빌드 (Dockerfile)"
+docker build -t vocab-app .
+
+echo "==> 웹 컨테이너 교체"
+docker rm -f vocab-web >/dev/null 2>&1 || true
+docker run -d --name vocab-web --restart unless-stopped \
+  -p "${WEB_PORT}:80" \
+  vocab-web >/dev/null
+
+echo "==> 앱 컨테이너 교체"
+docker rm -f vocab-app >/dev/null 2>&1 || true
+docker run -d --name vocab-app --restart unless-stopped \
+  -p "${APP_PORT}:8081" \
+  -e "REACT_NATIVE_PACKAGER_HOSTNAME=${PUBLIC_HOST}" \
+  vocab-app >/dev/null
+
+echo "==> 확인"
+sleep 3
+
+web_code="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${WEB_PORT}" || true)"
+if [ "$web_code" = "200" ]; then
+  echo "    웹  정상  http://${PUBLIC_HOST}:${WEB_PORT}"
+else
+  echo "    웹  응답 코드 ${web_code:-없음} — docker logs vocab-web 을 확인하세요"
+fi
+
+# Expo 개발 서버는 번들러 기동에 시간이 걸려 바로 응답하지 않을 수 있으므로
+# 컨테이너가 살아 있는지만 확인합니다.
+if [ -n "$(docker ps -q --filter name=vocab-app --filter status=running)" ]; then
+  echo "    앱  실행 중  exp://${PUBLIC_HOST}:${APP_PORT}"
+else
+  echo "    앱  실행되지 않음 — docker logs vocab-app 을 확인하세요"
+fi
