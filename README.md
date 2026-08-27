@@ -119,47 +119,51 @@ docker run -d --name vocab-web --restart unless-stopped -p 8082:80 vocab-web
 
 ## 앱 배포 (OCI 상시 운영)
 
-OCI 인스턴스에서 Docker 컨테이너로 `expo start --tunnel`을 상시 띄워두고, Expo Go에서 터널 URL로 접속하는 방식입니다. 서버의 저장소 경로는 `~/vocab`, 컨테이너 이름은 `vocab-app` 입니다.
+OCI 인스턴스에서 Docker 컨테이너로 Expo 개발 서버를 상시 띄워두고, Expo Go에서 접속하는 방식입니다. 서버의 저장소 경로는 `~/vocab`, 컨테이너 이름은 `vocab-app` 입니다.
+
+**접속 주소: `exp://168.110.106.156:8081`** (웹과 마찬가지로 고정)
 
 ### 배포 (코드 갱신 후 재기동)
 
 ```bash
-ssh ubuntu@<서버-IP>
-
 git -C ~/vocab pull origin main
 docker build -t vocab-app ~/vocab
-docker stop vocab-app && docker rm vocab-app
-docker run -d --name vocab-app --restart unless-stopped vocab-app
-docker logs -f vocab-app     # Tunnel ready 확인 후 Ctrl+C (컨테이너는 계속 실행됨)
+docker rm -f vocab-app
+docker run -d --name vocab-app --restart unless-stopped \
+  -p 8081:8081 \
+  -e REACT_NATIVE_PACKAGER_HOSTNAME=168.110.106.156 \
+  vocab-app
+
+docker logs vocab-app        # "Waiting on http://localhost:8081" 이 뜨면 정상
 ```
 
-`Tunnel connected.` / `Tunnel ready.` 가 뜨면 정상 기동입니다.
+`REACT_NATIVE_PACKAGER_HOSTNAME` 은 Expo가 클라이언트에게 알려줄 주소입니다. 지정하지 않으면 컨테이너 내부 IP(`172.x.x.x`)를 알려주어 접속이 되지 않습니다.
 
-### 접속 URL 확인
+### 포트 개방 (최초 1회)
 
-컨테이너가 `CI=1` 환경에서 실행되므로 로그에 QR코드나 URL이 출력되지 않습니다. 대신 ngrok 관리 API로 조회합니다.
+웹(8082)과 마찬가지로 OCI 보안 목록에 **8081** 수신 규칙이 필요합니다. 절차는 위 "웹 배포 → 포트 개방" 항목과 같고 대상 포트만 다릅니다.
 
-```bash
-docker exec vocab-app curl -s http://127.0.0.1:4040/api/tunnels
-```
+### Expo Go 접속
 
-응답 JSON의 `public_url` (예: `https://xxxxxxx-anonymous-8081.exp.direct`) 이 접속 주소입니다.
+- **URL 직접 입력**: Expo Go에서 "Enter URL manually" → `exp://168.110.106.156:8081`
+- **iOS**: 수동 입력란이 없으면 메모장이나 Safari 주소창에 위 주소를 넣고 탭하면 딥링크로 열립니다
+- **QR 공유**: 위 주소를 QR 생성기에 넣어 이미지로 만들어 전달하면 됩니다
 
-- **Expo Go 접속**: 앱에서 "Enter URL manually" 선택 → `exp://xxxxxxx-anonymous-8081.exp.direct` 입력
-  (연결이 안 되면 `:443` 을 뒤에 붙여서 시도)
-- **QR로 공유**: `https://...` 주소를 QR 생성기에 넣어 이미지로 만들어 전달
+> 예전에는 `expo start --tunnel`(ngrok)을 사용했는데, 컨테이너를 재시작할 때마다 서브도메인이 새로 발급되어 이전에 공유한 QR과 링크가 모두 `ERR_NGROK_3200` 으로 죽는 문제가 있었습니다. 포트를 직접 여는 방식으로 바꿔 주소가 고정됩니다.
 
-> 터널 서브도메인은 컨테이너를 재시작할 때마다 새로 발급되므로, 재기동 후에는 URL을 다시 확인해서 공유해야 합니다.
+### 유지보수 참고
+
+`REACT_NATIVE_PACKAGER_HOSTNAME` 은 Expo CLI 소스에서 deprecated로 표시되어 있습니다(동작은 정상). SDK 업그레이드 후 접속이 안 되면 이 변수가 제거되었는지 먼저 확인하세요.
 
 ### 참고
 
-- 컨테이너는 호스트 포트를 퍼블리시하지 않습니다 (터널로만 외부 접근). `docker run` 에 `-p` 옵션이 없는 것이 정상입니다.
+- 서버에서 두 컨테이너가 각각 다른 포트로 동시에 운영됩니다: `vocab-web`(8082, 브라우저용), `vocab-app`(8081, Expo Go용).
 - `docker-compose.snippet.yml` 은 compose로 운영할 경우를 위한 참고용 예시이며, 현재 서버는 위의 `docker build` / `docker run` 방식으로 운영 중입니다.
 
 ## 다른 사람과 공유하기
 
 - **웹 주소 전달**: `http://168.110.106.156:8082` 를 전달 → 앱 설치 없이 브라우저에서 바로 실행 (가장 간단, 주소 고정)
-- **Expo Go 터널 URL 전달**: 상시 떠 있는 터널 URL을 전달 → 상대방이 Expo Go 앱만 있으면 실행 (재기동 시 주소 변경됨)
+- **Expo Go 주소 전달**: `exp://168.110.106.156:8081` 을 전달 → 상대방이 Expo Go 앱만 있으면 실행 (주소 고정)
 - **로컬에서 임시 공유**: `npx expo start` 후 뜨는 QR/링크를 그대로 전달 (빌드/배포 불필요)
 - **TestFlight(iOS)**: Apple Developer 계정 필요. `npx eas build --platform ios` → EAS Submit → TestFlight 링크로 최대 100명 배포
 - **APK(Android)**: `npx eas build --platform android` 로 만든 APK 파일을 그냥 전달하면 스토어 없이도 설치 가능
