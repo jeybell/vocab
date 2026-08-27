@@ -39,6 +39,7 @@ src/theme.js            # 색상 / 폰트 토큰
 Dockerfile              # 앱(Expo Go)용 이미지 — Expo 개발 서버 실행
 Dockerfile.web          # 웹용 이미지 — 번들 빌드 후 nginx로 서빙
 deploy.sh               # 웹·앱 두 컨테이너를 한 번에 재배포
+.github/workflows/      # main 반영 시 서버에서 deploy.sh 를 실행 (자동 배포)
 ```
 
 ## 저장 방식
@@ -101,7 +102,7 @@ OCI 인스턴스는 클라우드 방화벽이 기본으로 막고 있어, **OCI 
 
 ### 재배포
 
-웹과 앱을 함께 운영하므로 **`deploy.sh` 하나로 두 컨테이너를 모두 갱신**합니다. 한쪽만 빌드하면 다른 쪽이 예전 코드로 남습니다.
+`main` 에 반영되면 GitHub Actions가 자동으로 배포합니다 (아래 "자동 배포" 참고). 수동으로 하려면 **`deploy.sh` 하나로 두 컨테이너를 모두 갱신**합니다. 한쪽만 빌드하면 다른 쪽이 예전 코드로 남습니다.
 
 ```bash
 cd ~/vocab && ./deploy.sh
@@ -181,6 +182,50 @@ docker logs vocab-app        # "Waiting on http://localhost:8081" 이 뜨면 정
 
 - 서버에서 두 컨테이너가 각각 다른 포트로 동시에 운영됩니다: `vocab-web`(8082, 브라우저용), `vocab-app`(8081, Expo Go용).
 - `docker-compose.snippet.yml` 은 compose로 운영할 경우를 위한 참고용 예시이며, 현재 서버는 위의 `docker build` / `docker run` 방식으로 운영 중입니다.
+
+## 자동 배포 (GitHub Actions)
+
+`main` 에 반영되면 GitHub Actions가 서버에 접속해 `deploy.sh` 를 실행합니다 (`.github/workflows/deploy.yml`). PR을 머지하면 배포까지 자동으로 끝납니다.
+
+포크에서 온 PR이 배포를 실행할 수 없도록 **`push: main` 과 수동 실행(`workflow_dispatch`) 에서만** 동작합니다. 공개 저장소이므로 이 구분이 중요합니다.
+
+### 최초 설정
+
+**1. 서버에서 배포 전용 키를 만들고 등록합니다.**
+
+```bash
+ssh-keygen -t ed25519 -f ~/deploy_key -N "" -C "github-actions-deploy"
+
+# 이 키로는 배포 명령만 실행되도록 제한해서 등록합니다.
+printf 'command="cd /home/ubuntu/vocab && git pull origin main && ./deploy.sh",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding %s\n' \
+  "$(cat ~/deploy_key.pub)" >> ~/.ssh/authorized_keys
+```
+
+`command="..."` 가 핵심입니다. 이 키로 접속하면 **무슨 명령을 보내든 배포 스크립트만 실행되고 셸은 열리지 않습니다.** 키가 유출되어도 서버를 임의로 조작할 수 없습니다.
+
+**2. 개인키를 GitHub Secrets에 등록합니다.**
+
+```bash
+cat ~/deploy_key       # 출력 전체를 복사
+```
+
+저장소 → Settings → Secrets and variables → Actions → New repository secret 에서:
+
+| 이름 | 값 |
+| --- | --- |
+| `DEPLOY_SSH_KEY` | 위 개인키 전체 (`-----BEGIN` 부터 `-----END` 줄까지) |
+| `DEPLOY_HOST` | 서버 IP |
+| `DEPLOY_USER` | `ubuntu` |
+
+**3. 서버에서 개인키를 지웁니다.** 서버에는 공개키만 있으면 됩니다.
+
+```bash
+rm ~/deploy_key ~/deploy_key.pub
+```
+
+### 확인
+
+저장소의 Actions 탭에서 실행 상태를 볼 수 있습니다. `Deploy` 워크플로를 열어 **Run workflow** 로 수동 실행해 먼저 시험해보는 것을 권합니다.
 
 ## 다른 사람과 공유하기
 
