@@ -53,19 +53,38 @@ docker run -d --name vocab-app --restart unless-stopped \
   vocab-app >/dev/null
 
 echo "==> 확인"
-sleep 3
+failed=0
 
-web_code="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${WEB_PORT}" || true)"
+# 컨테이너 기동 직후에는 잠시 연결이 거부될 수 있어 재시도합니다.
+web_code=""
+for _ in $(seq 1 15); do
+  web_code="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${WEB_PORT}" || true)"
+  [ "$web_code" = "200" ] && break
+  sleep 2
+done
+
 if [ "$web_code" = "200" ]; then
   echo "    웹  정상  http://${PUBLIC_HOST}:${WEB_PORT}"
 else
-  echo "    웹  응답 코드 ${web_code:-없음} — docker logs vocab-web 을 확인하세요"
+  echo "    웹  실패 (응답: ${web_code:-없음}) — docker logs vocab-web 을 확인하세요" >&2
+  failed=1
 fi
 
-# Expo 개발 서버는 번들러 기동에 시간이 걸려 바로 응답하지 않을 수 있으므로
-# 컨테이너가 살아 있는지만 확인합니다.
+# Expo 개발 서버는 번들러 기동에 시간이 걸려 HTTP 응답으로 판단하기 어렵습니다.
+# 대신 기동 직후 죽는 경우를 잡기 위해, 잠시 기다렸다가 여전히 살아 있는지 봅니다.
+sleep 10
 if [ -n "$(docker ps -q --filter name=vocab-app --filter status=running)" ]; then
   echo "    앱  실행 중  exp://${PUBLIC_HOST}:${APP_PORT}"
 else
-  echo "    앱  실행되지 않음 — docker logs vocab-app 을 확인하세요"
+  echo "    앱  실패 (컨테이너가 실행 중이 아님) — docker logs vocab-app 을 확인하세요" >&2
+  failed=1
 fi
+
+# 확인 단계가 실패하면 스크립트도 실패로 끝냅니다.
+# 그래야 자동 배포에서 "성공 = 실제로 서비스 중" 이 됩니다.
+if [ "$failed" -ne 0 ]; then
+  echo "==> 배포 확인 실패" >&2
+  exit 1
+fi
+
+echo "==> 배포 완료"
