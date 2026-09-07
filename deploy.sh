@@ -12,11 +12,22 @@ REPO_DIR="${REPO_DIR:-$HOME/vocab}"
 WEB_PORT="${WEB_PORT:-8082}"
 APP_PORT="${APP_PORT:-8081}"
 
-# 서버 주소는 저장소에 두지 않습니다(공개 저장소). 서버의 deploy.env 에 보관하며,
-# 이 파일은 .gitignore 에 있습니다. 환경변수로 직접 넘긴 값이 우선합니다.
-if [ -z "${PUBLIC_HOST:-}" ] && [ -f "$REPO_DIR/deploy.env" ]; then
+# 서버 주소와 토큰은 저장소에 두지 않습니다(공개 저장소). 서버의 deploy.env 에
+# 보관하며, 이 파일은 .gitignore 에 있습니다.
+# 환경변수로 직접 넘긴 값이 파일보다 우선하도록, 미리 보관했다가 되돌립니다.
+_arg_public_host="${PUBLIC_HOST:-}"
+_arg_expo_token="${EXPO_TOKEN:-}"
+
+if [ -f "$REPO_DIR/deploy.env" ]; then
   # shellcheck source=/dev/null
   . "$REPO_DIR/deploy.env"
+fi
+
+if [ -n "$_arg_public_host" ]; then
+  PUBLIC_HOST="$_arg_public_host"
+fi
+if [ -n "$_arg_expo_token" ]; then
+  EXPO_TOKEN="$_arg_expo_token"
 fi
 
 # Expo Go에 알려줄 주소입니다. 컨테이너 내부 IP가 아니라 서버 공인 IP여야 합니다.
@@ -47,9 +58,22 @@ docker run -d --name vocab-web --restart unless-stopped \
 
 echo "==> 앱 컨테이너 교체"
 docker rm -f vocab-app >/dev/null 2>&1 || true
+
+# Expo Go는 로컬 네트워크 밖의 개발 서버에 붙을 때 CLI와 Expo Go가 같은
+# 계정으로 로그인되어 있기를 요구합니다. 서버는 공인 IP로 서비스하므로
+# 여기에 해당하며, 헤드리스 환경에서는 EXPO_TOKEN 으로 로그인합니다.
+# 토큰은 deploy.env 에 두며, 없으면 전달하지 않습니다(웹에는 영향 없음).
+app_env=()
+if [ -n "${EXPO_TOKEN:-}" ]; then
+  app_env+=(-e "EXPO_TOKEN=${EXPO_TOKEN}")
+else
+  echo "    참고: EXPO_TOKEN 이 없어 Expo Go 접속 시 로그인 요구 화면이 뜰 수 있습니다"
+fi
+
 docker run -d --name vocab-app --restart unless-stopped \
   -p "${APP_PORT}:8081" \
   -e "REACT_NATIVE_PACKAGER_HOSTNAME=${PUBLIC_HOST}" \
+  "${app_env[@]}" \
   vocab-app >/dev/null
 
 echo "==> 확인"

@@ -187,6 +187,28 @@ docker logs vocab-app        # "Waiting on http://localhost:8081" 이 뜨면 정
 
 > 예전에는 `expo start --tunnel`(ngrok)을 사용했는데, 컨테이너를 재시작할 때마다 서브도메인이 새로 발급되어 이전에 공유한 QR과 링크가 모두 `ERR_NGROK_3200` 으로 죽는 문제가 있었습니다. 포트를 직접 여는 방식으로 바꿔 주소가 고정됩니다.
 
+### Expo 로그인 (최초 1회)
+
+Expo Go는 **로컬 네트워크 밖의 개발 서버**에 붙을 때, CLI와 Expo Go가 **같은 계정으로 로그인되어 있기를 요구**합니다. 이 서버는 공인 IP로 서비스하므로 여기에 해당하며, 설정하지 않으면 접속 시 다음 화면이 뜹니다.
+
+> You need to be signed in to Expo Go and Expo CLI to open your project.
+
+컨테이너에는 대화형 로그인을 할 수 없으므로 액세스 토큰을 사용합니다.
+
+**1. 토큰 발급** — [expo.dev](https://expo.dev) 로그인 → 우측 상단 계정 → Settings → Access tokens → Create token
+
+**2. 서버의 `deploy.env` 에 추가**
+
+```bash
+# ~/vocab/deploy.env
+PUBLIC_HOST=<서버-IP>
+EXPO_TOKEN=<발급받은_토큰>
+```
+
+**3. 휴대폰 Expo Go 앱에서도 같은 계정으로 로그인**
+
+이후 배포하면 `deploy.sh` 가 토큰을 컨테이너에 전달합니다. 토큰이 없으면 앱 컨테이너는 그대로 뜨되 배포 로그에 안내 문구가 출력되며, **웹 접속에는 영향이 없습니다.**
+
 ### 유지보수 참고
 
 `REACT_NATIVE_PACKAGER_HOSTNAME` 은 Expo CLI 소스에서 deprecated로 표시되어 있습니다(동작은 정상). SDK 업그레이드 후 접속이 안 되면 이 변수가 제거되었는지 먼저 확인하세요.
